@@ -7,4 +7,4 @@
 - sample Cascade assembly code in the `app` directory
 - assembler and interpreter in the `src` directory
 
-[0.0.1]: https://example.com
+[0.0.1]: https://github.com/julse-merencillo/cascades/releases/tag/0.0.1

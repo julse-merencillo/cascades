@@ -1,0 +1,63 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.37.0.
+--
+-- see: https://github.com/sol/hpack
+
+name:           cascades
+version:        0.0.1
+description:    Please see the README on GitHub at <https://github.com/julse-merencillo/cascades>
+homepage:       https://github.com/julse-merencillo/cascades#readme
+bug-reports:    https://github.com/julse-merencillo/cascades/issues
+author:         Merencillo, Julse M.
+maintainer:     julsemerencillo@proton.me
+copyright:      2024 Merencillo, Julse M.
+license:        MIT
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    CHANGELOG.md
+
+source-repository head
+  type: git
+  location: https://github.com/julse-merencillo/cascades
+
+library
+  exposed-modules:
+      Cascade.Assembler
+      Cascade.Runtime
+  other-modules:
+      Paths_cascades
+  hs-source-dirs:
+      src
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  build-depends:
+      base >=4.7 && <5
+    , containers
+  default-language: Haskell2010
+
+executable cascades-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_cascades
+  hs-source-dirs:
+      app
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , cascades
+  default-language: Haskell2010
+
+test-suite cascades-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_cascades
+  hs-source-dirs:
+      test
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , cascades
+  default-language: Haskell2010

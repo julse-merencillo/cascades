@@ -1,2 +1,7 @@
 .stack-work/
 *~
+# Profiling reports
+*.aux
+*.hp
+*.prof
+*.ps

@@ -1,46 +1,37 @@
 module Main (main) where
 
-import Cascade.Assembler (OpCode (..), assembleByteCode)
-import Cascade.Runtime (interpretByteCode)
+import Cascade.Runtime
+import Data.Sequence (fromList)
+
+versionNumber :: String
+versionNumber = "0.1.1"
 
 main :: IO ()
 main = do
-  putStrLn "Cascades, on version 0.0.1"
-  putStrLn "Testing at the moment.\n"
+    putStrLn $ "Cascades, on version " ++ versionNumber 
+    putStrLn "Testing at the moment\n"
 
-  let code = [ (PUSH, [10])
-             , (SUB, [1])
-             , (POP, [])
-             , (ILL, [])
-             , (HALT, [])
-             ]
+    -- Collatz sequence
+    let collatz = [ PSH 3
+                  , DUP
+                  , PSH 2
+                  , MOD
+                  , JNZ 9
+                  , POP
+                  , PSH 2
+                  , DIV
+                  , JMP 1
+                  , POP
+                  , PSH 3
+                  , MUL
+                  , PSH 1
+                  , ADD
+                  , JMP 1
+                  ]
+    print code
 
-  let code2 = [ (PUSH, [5])
-              , (NOP, [])
-              , (NOP, [])
-              , (PUSH, [2])
-              , (ADD, [])
-              , (PUSH, [10])
-              , (SUB, [])
-              , (NOP, [])
-              , (POP, [])
-              , (POP, [])
-              , (HALT, [])
-              ]
+    let hist = execute $ fromList collatz
+    mapM_ print hist
 
-  let asm = assembleByteCode code
-  let asm2 = assembleByteCode code2
-
-  putStrLn "Assembly code:"
-  print code
-  print code2
-  putStrLn "Result:"
-  print asm
-  print asm2
-
-  putStrLn "Running each code"
-  let Right x = asm2
-  
-  mapM_ print (interpretByteCode x)
 
 

@@ -1,5 +1,5 @@
 name:                cascades
-version:             0.0.1
+version:             0.1.1
 github:              "julse-merencillo/cascades"
 license:             MIT
 author:              "Merencillo, Julse M."
@@ -21,6 +21,8 @@ description:         Please see the README on GitHub at <https://github.com/juls
 
 dependencies:
 - base >= 4.7 && < 5
+- containers
+- text
 
 ghc-options:
 - -Wall
@@ -35,8 +37,6 @@ ghc-options:
 
 library:
   source-dirs: src
-  dependencies:
-  - containers
 
 executables:
   cascades-exe:

@@ -16,19 +16,21 @@ main = do
                   , DUP
                   , PSH 2
                   , MOD
-                  , JNZ 9
+                  , JNZ 10
                   , POP
                   , PSH 2
                   , DIV
-                  , JMP 1
+                  , JNV 1 1
+                  , END
                   , POP
                   , PSH 3
                   , MUL
                   , PSH 1
                   , ADD
-                  , JMP 1
+                  , JNV 1 1
+                  , END
                   ]
-    print code
+    print collatz
 
     let hist = execute $ fromList collatz
     mapM_ print hist

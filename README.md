@@ -6,7 +6,7 @@ version 9.6.6.
 
 ## About this project
 This is a stack virtual machine I created to learn more about Haskell.
-So far, there are 23 opcodes. Here is an overview:
+So far, there are 30 opcodes. Here is an overview:
 
 - **Stack Manipulation**
   - `PSH Int` - Push a number onto the stack
@@ -18,6 +18,16 @@ So far, there are 23 opcodes. Here is an overview:
   - `MUL` - Pop two numbers `a` and `b` and push `b * a`
   - `DIV` - Pop two numbers `a` and `b` and push `b / a` if a is not 0
   - `MOD` - Pop two numbers `a` and `b` and push `b mod a` if a is not 0
+- **Bitwise Operations**
+  - `AND` - Pop two numbers `a` and `b` and push `b AND a`
+  - `IOR` - Pop two numbers `a` and `b` and push `b OR a`
+  - `XOR` - Pop two numbers `a` and `b` and push `b XOR a`
+  - `NOT` - Pop the top value and push its complement
+  - `SHL Int` - Pop the top value and push it back, with its bits shifted to the
+  left by a specified value
+  - `SHR Int` - Pop the top value and push it back, with its bits shifted to the
+  right by a specified value
+  - `CNT` - Push the number of one bits in the top value
 - **Branching Operations**
   - `JMP Addr` - Jump to the specified address
   - `JMS` - Jump to the specified address on top of the stack

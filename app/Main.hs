@@ -30,9 +30,23 @@ main = do
                   , JNV 1 1
                   , END
                   ]
-    print collatz
 
-    let hist = execute $ fromList collatz
+    -- Bitwise test
+    let bitwise = [ PSH 10
+                  , SHL 2
+                  , SHR 3
+                  , PSH 3
+                  , AND
+                  , PSH 12
+                  , IOR
+                  , PSH 1
+                  , XOR
+                  , CNT
+                  , END
+                  ]
+    print bitwise
+
+    let hist = execute $ fromList bitwise
     mapM_ print hist
 
 

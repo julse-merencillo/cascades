@@ -13,7 +13,8 @@ module Cascade.Runtime
 
 import qualified Data.Sequence as S
 import qualified Data.Text     as T
-default (T.Text)
+import qualified Data.Bits     as B
+default (Int, T.Text)
 
 -- | Currently available assembly instructions.
 data OpCode = NOP          -- ^ Do nothing
@@ -31,6 +32,17 @@ data OpCode = NOP          -- ^ Do nothing
             | MUL          -- ^ Pop two numbers @a@ and @b@, then push @b * a@
             | DIV          -- ^ Pop two numbers @a@ and @b@, then push @b / a@
             | MOD          -- ^ Pop two numbers @a@ and @b@, then push @b mod a@
+
+            -- Bitwise operations
+            | AND          -- ^ Pop two numbers @a@ and @b@, then push @b AND a@
+            | IOR          -- ^ Pop two numbers @a@ and @b@, then push @b OR a@
+            | XOR          -- ^ Pop two numbers @a@ and @b@, then push @b XOR a@
+            | NOT          -- ^ Pop the top number and push its complement
+            | SHL Int      -- ^ Pop the top number and push it back, with its
+                           --   bits shifted to the left by a specified amount
+            | SHR Int      -- ^ Pop the top number and push it back, with its
+                           --   bits shifted to the right by a specified amount
+            | CNT          -- ^ Push the number of one bits in the top number
 
             -- Branching instructions
             | JMP Addr     -- ^ Jump to the indicated instruction address
@@ -78,6 +90,10 @@ itemsNeededInStack op = case op of
     JMP _   -> Zero
     POP     -> One
     DUP     -> One
+    NOT     -> One
+    SHL _   -> One
+    SHR _   -> One
+    CNT     -> One
     JMS     -> One
     JZE _   -> One
     JNZ _   -> One
@@ -90,6 +106,9 @@ itemsNeededInStack op = case op of
     MUL     -> Two
     DIV     -> Two
     MOD     -> Two
+    AND     -> Two
+    IOR     -> Two
+    XOR     -> Two
     JEQ _   -> Two
     JNQ _   -> Two
     JGT _   -> Two
@@ -160,8 +179,8 @@ runWith cpu code = case S.lookup (ip cpu) code of
         END       -> [cpu { state = "Terminated" }]
         ILL       -> [cpu { state = "Unknown instruction" }]
 
-        PSH x     -> push x
-        DUP       -> push $ (head . stack) cpu
+        PSH x     -> push x "value"
+        DUP       -> push ((head . stack) cpu) "duplicate"
 
         POP       -> let res = cpu { stack = (tail . stack) cpu
                                    , state = "Popped value" }
@@ -172,6 +191,18 @@ runWith cpu code = case S.lookup (ip cpu) code of
         MUL       -> calc (*) "Multiplied"
         DIV       -> calcCheck div "Divided"
         MOD       -> calcCheck mod "Remainder of"
+
+        AND       -> calc (B..&.) "AND of"
+        IOR       -> calc (B..|.) "Inclusive OR of"
+        XOR       -> calc B.xor "Exclusive OR of"
+
+        NOT       -> let res = cpu { stack = (B.complement . head . stack) cpu :
+                                             (tail . stack) cpu
+                                   , state = "Complement of the top value" }
+                     in res : runWith res { ip = ip cpu + 1 } code
+        SHL n     -> shiftCalc (n)
+        SHR n     -> shiftCalc (-n)
+        CNT       -> push ((B.popCount . head . stack) cpu) "count of ones"
 
         JMP adr   -> branch adr True
         JMS       -> branch ((head . stack) cpu) True
@@ -192,9 +223,9 @@ runWith cpu code = case S.lookup (ip cpu) code of
     
     -- | Pushes values onto the stack.
     {-# INLINE push #-}
-    push :: Int -> [CPU]
-    push x = let res = cpu { stack = x : stack cpu, state = "Pushed value" }
-             in res : runWith res { ip = ip cpu + 1 } code
+    push :: Int -> T.Text -> [CPU]
+    push x t = let res = cpu { stack = x : stack cpu, state = "Pushed " <> t }
+               in res : runWith res { ip = ip cpu + 1 } code
 
     -- | Performs numeric operations.
     {-# INLINE calc #-}
@@ -211,6 +242,14 @@ runWith cpu code = case S.lookup (ip cpu) code of
     calcCheck f str = case cpu of
         ZeroOnTop -> [cpu { state = "Top value is 0" }]
         _         -> calc f str
+
+    -- | Computes the bit shift
+    {-# INLINE shiftCalc #-}
+    shiftCalc :: Int -> [CPU]
+    shiftCalc n = let a   = (head . stack) cpu
+                      res = cpu { stack = (B.shift a n) : (tail . stack) cpu
+                                , state = "Shifted value" }
+                  in res : runWith res { ip = ip cpu + 1 } code
     
     -- | Checks if branching should occur.
     {-# INLINE branch #-}

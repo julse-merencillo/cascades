@@ -1,3 +1,8 @@
+## [0.1.2] (2024/11/22) - Twofold
+
+### Additions
+- Added bitwise instructions `AND`, `IOR`, `XOR`, `NOT`, `SHL`, `SHR`, and `CNT`
+
 ## [0.1.1] (2024/11/02) - Divergence
 
 ### Changes
@@ -26,5 +31,6 @@
 - Cascade's assembler, found in `Cascade.Assembler`
 - Cascade's interpreter, found in `Cascade.Runtime`
 
+[0.1.2]: https://github.com/julse-merencillo/cascades/releases/tag/0.1.2
 [0.1.1]: https://github.com/julse-merencillo/cascades/releases/tag/0.1.1
 [0.0.1]: https://github.com/julse-merencillo/cascades/releases/tag/0.0.1

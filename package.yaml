@@ -1,10 +1,10 @@
 name:                cascades
-version:             0.1.1
+version:             0.2.1
 github:              "julse-merencillo/cascades"
 license:             MIT
 author:              "Merencillo, Julse M."
 maintainer:          "julsemerencillo@proton.me"
-copyright:           "2024 Merencillo, Julse M."
+copyright:           "2024-2025 Merencillo, Julse M."
 
 extra-source-files:
 - README.md
@@ -39,7 +39,7 @@ library:
   source-dirs: src
 
 executables:
-  cascades-exe:
+  cascades:
     main:                Main.hs
     source-dirs:         app
     ghc-options:

@@ -1,261 +1,257 @@
-{-# LANGUAGE OverloadedStrings, ExtendedDefaultRules, PatternSynonyms #-}
-
--- | This module contains Cascade's runtime; opcodes, instructions, and the
---   interpreter.
+-- | This module contains Cascade's runtime.
 module Cascade.Runtime
 (
-  OpCode (..),
-  Addr,
-  InstructionList,
-  CPU,
-  execute
+    OpCode(..),
+    Program,
+    runProgram
 ) where
 
 import qualified Data.Sequence as S
-import qualified Data.Text     as T
 import qualified Data.Bits     as B
-default (Int, T.Text)
 
--- | Currently available assembly instructions.
-data OpCode = NOP          -- ^ Do nothing
-            | END          -- ^ Terminate the program
-            | ILL          -- ^ Intentionally illegal opcode for testing
-
-            -- Stack manipulation
-            | PSH Int      -- ^ Push a number onto the stack
-            | POP          -- ^ Remove the top number from the stack
-            | DUP          -- ^ Duplicate the top number on the stack
-
-            -- Numerical operations
-            | ADD          -- ^ Pop two numbers @a@ and @b@, then push @b + a@
-            | SUB          -- ^ Pop two numbers @a@ and @b@, then push @b - a@
-            | MUL          -- ^ Pop two numbers @a@ and @b@, then push @b * a@
-            | DIV          -- ^ Pop two numbers @a@ and @b@, then push @b / a@
-            | MOD          -- ^ Pop two numbers @a@ and @b@, then push @b mod a@
-
-            -- Bitwise operations
-            | AND          -- ^ Pop two numbers @a@ and @b@, then push @b AND a@
-            | IOR          -- ^ Pop two numbers @a@ and @b@, then push @b OR a@
-            | XOR          -- ^ Pop two numbers @a@ and @b@, then push @b XOR a@
-            | NOT          -- ^ Pop the top number and push its complement
-            | SHL Int      -- ^ Pop the top number and push it back, with its
-                           --   bits shifted to the left by a specified amount
-            | SHR Int      -- ^ Pop the top number and push it back, with its
-                           --   bits shifted to the right by a specified amount
-            | CNT          -- ^ Push the number of one bits in the top number
-
-            -- Branching instructions
-            | JMP Addr     -- ^ Jump to the indicated instruction address
-            | JMS          -- ^ Jump to the address indicated on top of the
-                           --   stack
-            | JZE Addr     -- ^ Jump if the top value on the stack is 0
-            | JNZ Addr     -- ^ Jump if the top value on the stack is not 0
-            | JEQ Addr     -- ^ Jump if the top value on the stack is equal to
-                           --   the value beneath it
-            | JNQ Addr     -- ^ Jump if the top value on the stack is not equal
-                           --   to the value beneath it
-            | JGT Addr     -- ^ Jump if the top value on the stack is greater
-                           --   than the value beneath it
-            | JLT Addr     -- ^ Jump if the top value on the stack is lesser 
-                           --   than the value beneath it
-            | JQV Int Addr -- ^ Jump if the top value on the stack is equal to
-                           --   the given number
-            | JNV Int Addr -- ^ Jump if the top value on the stack is not equal
-                           --   to the given number
-            | JGV Int Addr -- ^ Jump if the top value on the stack is greater
-                           --   than the given number
-            | JLV Int Addr -- ^ Jump if the top value on the stack is lesser
-                           --   than the given number
-            deriving (Show, Eq)
+-- ( Data Declarations ) ------------------------------------------------------
 
 -- | Represents instruction addresses.
 type Addr = Int
 
--- | A list of instructions to be executed, implemented as a sequence.
-type InstructionList = S.Seq OpCode
+-- | Currently available instructions.
+data OpCode = NOP       -- ^ Do nothing
+            | END       -- ^ Terminate the program
+            | ILL       -- ^ Intentionally illegal opcode for testing purposes
+            -- Stack instructions
+            | PSH Int   -- ^ Store a value onto the stack
+            | POP       -- ^ Remove the top value from the stack
+            | DUP       -- ^ Duplicate the top value in the stack
+            -- Register and memory instructions
+            | LVR Int   -- ^ Load a value to the register
+            | LMR Addr  -- ^ Load a value from memory to the register
+            | SMR Addr  -- ^ Store the value from the register to memory
+            -- Stack and register instructions
+            | RGS       -- ^ Move the value from the register to the stack
+            | SRG       -- ^ Move the top value from the stack to the register
+            -- Arithmetic instructions
+            | ADD       -- ^ Compute the sum of the top two values
+            | SUB       -- ^ Compute the difference of the top two values
+            | MUL       -- ^ Compute the product of the top two values
+            | DIV       -- ^ Compute the quotient of the top two values
+            | MOD       -- ^ Compute the modulo of the top two valuess
+            -- Bitwise instructions
+            | AND       -- ^ Compute the logical AND of the top two values
+            | IOR       -- ^ Compute the logical OR of the top two values
+            | XOR       -- ^ Compute the logical XOR of the top two values
+            | NOT       -- ^ Compute the ones' complement of the top value
+            | SHL Int   -- ^ Shift the bits of the top value to the left
+            | SHR Int   -- ^ Shift the bits of the top value to the right
+            | CNT       -- ^ Push the number of one bits in the top value
+            -- Branching instructions
+            | JMP Addr  -- ^ Jump to the specified address
+            | JMS       -- ^ Jump to the specified address on top of the stack
+            | JMR       -- ^ Jump to the specified address on the register
+            | JZE Addr  -- ^ Jump if the top value is 0
+            | JNZ Addr  -- ^ Jump if the top value is not 0
+            | JEQ Addr  -- ^ Jump if the top value and register are equal
+            | JNQ Addr  -- ^ Jump if the top value and register are not equal
+            | JGT Addr  -- ^ Jump if the top value is greater than the register
+            | JLT Addr  -- ^ Jump if the top value is lesser than the register
+            deriving (Show)
 
--- | Represents required stack sizes for certain operations.
-data NeededSize = Zero
-                | One
-                | Two
+-- | A list of instructions to be executed by the machine.
+type Program = S.Seq OpCode
 
--- | Marking opcodes that require a certain stack size to run properly.
-{-# INLINE itemsNeededInStack #-}
-itemsNeededInStack :: OpCode -> NeededSize
-itemsNeededInStack op = case op of
-    NOP     -> Zero
-    END     -> Zero
-    ILL     -> Zero
-    PSH _   -> Zero
-    JMP _   -> Zero
-    POP     -> One
-    DUP     -> One
-    NOT     -> One
-    SHL _   -> One
-    SHR _   -> One
-    CNT     -> One
-    JMS     -> One
-    JZE _   -> One
-    JNZ _   -> One
-    JQV _ _ -> One
-    JNV _ _ -> One
-    JGV _ _ -> One
-    JLV _ _ -> One
-    ADD     -> Two
-    SUB     -> Two
-    MUL     -> Two
-    DIV     -> Two
-    MOD     -> Two
-    AND     -> Two
-    IOR     -> Two
-    XOR     -> Two
-    JEQ _   -> Two
-    JNQ _   -> Two
-    JGT _   -> Two
-    JLT _   -> Two
+-- | Contains program state during execution.
+data ExecUnit = PState { ip    :: Int    -- ^ Instruction pointer
+                       , reg   :: Int    -- ^ Program register
+                       , instr :: OpCode -- ^ Current instruction being run
+                       , stack :: [Int]  -- ^ Program stack
+                       }
+                deriving (Show)
 
--- | Shows the program state at each point of execution.
-data CPU = CPU { stack :: [Int]  -- ^ Program data stack
-               , state :: T.Text -- ^ Log of the current instruction
-               , ip    :: Int    -- ^ Instruction pointer
-               }
-           deriving (Show, Eq)
+-- | Helper function to access the head of the stack in a given state
+first :: ExecUnit -> Int
+{-# INLINE first #-}
+first = (head . stack)
 
--- | Pattern matching on stack contents, usually for instructions that require
---   a certain number of values in the stack.
-{-# INLINE EmptyStack #-}
-pattern EmptyStack :: CPU
-pattern EmptyStack <- CPU { stack = [] }
-{-# INLINE OneInStack #-}
-pattern OneInStack :: CPU
-pattern OneInStack <- CPU { stack = (_:[]) }
-{-# INLINE ZeroOnTop #-}
-pattern ZeroOnTop  :: CPU
-pattern ZeroOnTop  <- CPU { stack = (0:_) }
+-- | Helper function to access the tail of the stack in a given state
+rest :: ExecUnit -> [Int]
+{-# INLINE rest #-}
+rest = (tail . stack)
 
--- | Used at the start of program execution.
-emptyCPU :: CPU
-emptyCPU = CPU { stack = []
-               , state = ""
-               , ip    = 0 }
+-- | Possible errors that could occur during runtime
+data RuntimeError = DivByZero      -- ^ Division by zero
+                  | NotEnoughItems -- ^ Not enough items in the stack
+                  | IntentionalEnd -- ^ Attempting to run an ILL instruction
+                  deriving (Show)
 
--- | This executes the code and returns a history of all taken actions.
-execute :: InstructionList -> [CPU]
-execute = runWith emptyCPU
+-- | Indicates the status of the current program. 
+data Status = Success | Failure RuntimeError | ProgramEnd
 
--- | Executes each instruction step by step. It first checks if there is an
---   instruction at the specified address. If not, the program terminates.
-runWith :: CPU -> InstructionList -> [CPU]
-runWith _ S.Empty = [emptyCPU { state = "No instruction found" }]
+-- ( Program Execution ) ------------------------------------------------------
 
-runWith cpu code = case S.lookup (ip cpu) code of
-    Nothing -> [cpu { state = "No instruction found" }]
-    Just op -> checkStack op (itemsNeededInStack op)
+-- | Initial program state before execution.
+initState :: ExecUnit
+{-# INLINE initState #-}
+initState = PState { stack = []
+                   , ip    = 0
+                   , reg   = 0
+                   , instr = NOP }
 
+-- | Runs the program in a fetch-decode-execute cycle.
+runProgram :: Program -> IO ()
+runProgram S.Empty = error "Nothing to run."
+runProgram prog    = fetch prog initState
+
+-- | Fetches the instruction pointed to by the instruction pointer. If none
+--   exists, the program halts.
+fetch :: Program -> ExecUnit -> IO ()
+{-# INLINE fetch #-}
+fetch prog state = do
+    case S.lookup (ip state) prog of
+        Nothing -> error "No instruction found."
+        Just op -> decode prog $ state { instr = op }
+
+-- | Prepares for execution by checking if the program state won't cause any
+--   errors. If there are, the program halts.
+decode :: Program -> ExecUnit -> IO ()
+{-# INLINE decode #-}
+decode prog state = do
+    case check state of
+        Success       -> execute prog state
+        Failure cause -> error $ "Cannot run instruction " ++ 
+                         show (instr state) ++ " due to " ++ show cause
+        ProgramEnd    -> putStrLn ""
+    
+-- | Executes the instruction.
+execute :: Program -> ExecUnit -> IO ()
+{-# INLINE execute #-}
+execute prog state = do
+    newState <- runOp state
+    print newState
+    fetch prog newState
+    
+-- ( Error Checking ) ---------------------------------------------------------
+
+-- | Checks the current state and instruction to run and determines if the
+--   program can keep running.
+check :: ExecUnit -> Status
+{-# INLINE check #-}
+check state = case (instr state, stack state) of
+    -- Division by 0: The top of the stack is 0
+    (DIV  , (0:_))  -> Failure DivByZero
+    (MOD  , (0:_))  -> Failure DivByZero
+    -- Operations that require an item in the stack: The stack is empty
+    (POP  , [])     -> Failure NotEnoughItems
+    (DUP  , [])     -> Failure NotEnoughItems
+    (SRG  , [])     -> Failure NotEnoughItems
+    (ADD  , [])     -> Failure NotEnoughItems
+    (SUB  , [])     -> Failure NotEnoughItems
+    (MUL  , [])     -> Failure NotEnoughItems
+    (DIV  , [])     -> Failure NotEnoughItems
+    (MOD  , [])     -> Failure NotEnoughItems
+    (AND  , [])     -> Failure NotEnoughItems
+    (IOR  , [])     -> Failure NotEnoughItems
+    (NOT  , [])     -> Failure NotEnoughItems
+    (SHL _, [])     -> Failure NotEnoughItems
+    (SHR _, [])     -> Failure NotEnoughItems
+    (CNT  , [])     -> Failure NotEnoughItems
+    (JMS  , [])     -> Failure NotEnoughItems
+    (JZE _, [])     -> Failure NotEnoughItems
+    (JNZ _, [])     -> Failure NotEnoughItems
+    (JEQ _, [])     -> Failure NotEnoughItems
+    (JNQ _, [])     -> Failure NotEnoughItems
+    (JGT _, [])     -> Failure NotEnoughItems
+    (JLT _, [])     -> Failure NotEnoughItems
+    -- Operations that require two items in the stack: There is only one item
+    (ADD  , (_:[])) -> Failure NotEnoughItems
+    (SUB  , (_:[])) -> Failure NotEnoughItems
+    (MUL  , (_:[])) -> Failure NotEnoughItems
+    (DIV  , (_:[])) -> Failure NotEnoughItems
+    (MOD  , (_:[])) -> Failure NotEnoughItems
+    (AND  , (_:[])) -> Failure NotEnoughItems
+    (IOR  , (_:[])) -> Failure NotEnoughItems
+    (XOR  , (_:[])) -> Failure NotEnoughItems
+    -- Program termination
+    (END  , _)      -> ProgramEnd
+    (ILL  , _)      -> Failure IntentionalEnd
+    -- Checked all failure/termination cases past this point
+    (_,_) -> Success
+
+-- ( Instruction Execution ) --------------------------------------------------
+
+-- | Performs the actual computation and returns the state after execution.
+runOp :: ExecUnit -> IO ExecUnit
+{-# INLINE runOp #-}
+runOp state = return $ case instr state of
+    -- Stack instructions
+    PSH num -> push state num
+    POP     -> state { stack = rest state, ip = ip state + 1 }
+    DUP     -> push state $ first state
+    -- Register-memory instructions
+    LVR num -> state { reg = num, ip = ip state + 1 }
+    {-LMR adr-}
+    {-SMR adr-}
+    -- Stack-register instructions
+    RGS     -> move state toStack
+    SRG     -> move state toRegister
+    -- Arithmetic instructions
+    ADD     -> calc state (+)
+    SUB     -> calc state (-)
+    MUL     -> calc state (*)
+    DIV     -> calc state div
+    MOD     -> calc state mod
+    -- Bitwise instructions
+    AND     -> calc state (B..&.)
+    IOR     -> calc state (B..|.)
+    XOR     -> calc state B.xor
+    NOT     -> state { stack = (B.complement . first) state : rest state
+                     , ip    = ip state + 1 }
+    SHL num -> calcShift state num
+    SHR num -> calcShift state (-num)
+    CNT     -> push state $ (B.popCount . first) state
+    -- Branching instructions
+    JMP adr -> jump state adr           True
+    JMS     -> jump state (first state) True
+    JMR     -> jump state (reg state)   True
+    JZE adr -> jump state adr $ (first state) == 0
+    JNZ adr -> jump state adr $ (first state) /= 0
+    JEQ adr -> jump state adr $ (first state) == (reg state) 
+    JNQ adr -> jump state adr $ (first state) /= (reg state)
+    JGT adr -> jump state adr $ (first state) > (reg state)
+    JLT adr -> jump state adr $ (first state) < (reg state)
+    -- Unimplemented instructions are treated as NOPs
+    _   -> state
     where
-    -- | Checks if there are enough items in the stack for certain operations.
-    --   If not, the program terminates.
-    {-# INLINE checkStack #-}
-    checkStack :: OpCode -> NeededSize -> [CPU]
-    checkStack op Zero = runOp op
+    toStack    = True
+    toRegister = False
 
-    checkStack op One = case cpu of
-        EmptyStack -> [cpu { state = "Not enough values" }]
-        _          -> runOp op
+-- | Pushes a number to the stack
+push :: ExecUnit -> Int -> ExecUnit
+{-# INLINE push #-}
+push state num = state { stack = num : stack state, ip = ip state + 1 }
 
-    checkStack op Two = case cpu of
-        EmptyStack -> [cpu { state = "Not enough values" }]
-        OneInStack -> [cpu { state = "Not enough values" }]
-        _          -> runOp op
+-- | Performs an arithmetic or bitwise calculation
+calc :: ExecUnit -> (Int -> Int -> Int) -> ExecUnit
+{-# INLINE calc #-}
+calc state f = let a = first state
+                   b = rest state
+               in state { stack = (head b `f` a) : tail b, ip = ip state + 1}
 
-    -- | Performs the instruction. Depending on the kind, it will call utility
-    --   functions.
-    {-# INLINE runOp #-}
-    runOp :: OpCode -> [CPU]
-    runOp op = case op of
-        NOP       -> let res = cpu { state = "Doing nothing" }
-                     in res : runWith res { ip = ip cpu + 1 } code
+-- | Performs a bit shift operation
+calcShift :: ExecUnit -> Int -> ExecUnit
+{-# INLINE calcShift #-}
+calcShift state num = let a = first state
+                      in state { stack = (B.shift a num) : rest state
+                               , ip    = ip state + 1 }
 
-        END       -> [cpu { state = "Terminated" }]
-        ILL       -> [cpu { state = "Unknown instruction" }]
+-- | Performs a branch instruction
+jump :: ExecUnit -> Addr -> Bool -> ExecUnit
+{-# INLINE jump #-}
+jump state adr True  = state { ip = adr }
+jump state _   False = state { ip = ip state + 1 }
 
-        PSH x     -> push x "value"
-        DUP       -> push ((head . stack) cpu) "duplicate"
-
-        POP       -> let res = cpu { stack = (tail . stack) cpu
-                                   , state = "Popped value" }
-                     in res : runWith res { ip = ip cpu + 1 } code
-
-        ADD       -> calc (+) "Added"
-        SUB       -> calc (-) "Subtracted"
-        MUL       -> calc (*) "Multiplied"
-        DIV       -> calcCheck div "Divided"
-        MOD       -> calcCheck mod "Remainder of"
-
-        AND       -> calc (B..&.) "AND of"
-        IOR       -> calc (B..|.) "Inclusive OR of"
-        XOR       -> calc B.xor "Exclusive OR of"
-
-        NOT       -> let res = cpu { stack = (B.complement . head . stack) cpu :
-                                             (tail . stack) cpu
-                                   , state = "Complement of the top value" }
-                     in res : runWith res { ip = ip cpu + 1 } code
-        SHL n     -> shiftCalc (n)
-        SHR n     -> shiftCalc (-n)
-        CNT       -> push ((B.popCount . head . stack) cpu) "count of ones"
-
-        JMP adr   -> branch adr True
-        JMS       -> branch ((head . stack) cpu) True
-        JZE adr   -> branch adr $ (head . stack) cpu == 0
-        JNZ adr   -> branch adr $ (head . stack) cpu /= 0
-        JEQ adr   -> branch adr $ (head . stack) cpu == 
-                                  (head . tail . stack) cpu
-        JNQ adr   -> branch adr $ (head . stack) cpu /=
-                                  (head . tail . stack) cpu
-        JGT adr   -> branch adr $ (head . stack) cpu >
-                                  (head . tail . stack) cpu
-        JLT adr   -> branch adr $ (head . stack) cpu <
-                                  (head . tail . stack) cpu
-        JQV n adr -> branch adr $ (head . stack) cpu == n
-        JNV n adr -> branch adr $ (head . stack) cpu /= n
-        JGV n adr -> branch adr $ (head . stack) cpu > n
-        JLV n adr -> branch adr $ (head . stack) cpu < n
-    
-    -- | Pushes values onto the stack.
-    {-# INLINE push #-}
-    push :: Int -> T.Text -> [CPU]
-    push x t = let res = cpu { stack = x : stack cpu, state = "Pushed " <> t }
-               in res : runWith res { ip = ip cpu + 1 } code
-
-    -- | Performs numeric operations.
-    {-# INLINE calc #-}
-    calc :: (Int -> Int -> Int) -> T.Text -> [CPU]
-    calc f str = let a   = (head . stack) cpu
-                     b   = (tail . stack) cpu
-                     res = cpu { stack = (head b `f` a) : tail b
-                               , state = str <> " two values" }
-                 in res : runWith res { ip = ip cpu + 1 } code
-
-    -- | Checks division by 0 for DIV and MOD.
-    {-# INLINE calcCheck #-}
-    calcCheck :: (Int -> Int -> Int) -> T.Text -> [CPU]
-    calcCheck f str = case cpu of
-        ZeroOnTop -> [cpu { state = "Top value is 0" }]
-        _         -> calc f str
-
-    -- | Computes the bit shift
-    {-# INLINE shiftCalc #-}
-    shiftCalc :: Int -> [CPU]
-    shiftCalc n = let a   = (head . stack) cpu
-                      res = cpu { stack = (B.shift a n) : (tail . stack) cpu
-                                , state = "Shifted value" }
-                  in res : runWith res { ip = ip cpu + 1 } code
-    
-    -- | Checks if branching should occur.
-    {-# INLINE branch #-}
-    branch :: Addr -> Bool -> [CPU]
-    branch adr True = let res = cpu { state = "Jumping to specified location" }
-                      in res : runWith res { ip = adr } code
-    branch _ False  = let res = cpu { state = "Not jumping" }
-                      in res : runWith res { ip = ip cpu + 1 } code
-
+-- | Moves values between the register and the stack
+move :: ExecUnit -> Bool -> ExecUnit
+{-# INLINE move #-}
+move state True  = state { reg = 0, stack = reg state : stack state, 
+                           ip  = ip state + 1 }
+move state False = state { reg = first state, stack = rest state,
+                           ip  = ip state + 1 }

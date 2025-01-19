@@ -5,13 +5,13 @@ cabal-version: 1.12
 -- see: https://github.com/sol/hpack
 
 name:           cascades
-version:        0.1.1
+version:        0.2.1
 description:    Please see the README on GitHub at <https://github.com/julse-merencillo/cascades>
 homepage:       https://github.com/julse-merencillo/cascades#readme
 bug-reports:    https://github.com/julse-merencillo/cascades/issues
 author:         Merencillo, Julse M.
 maintainer:     julsemerencillo@proton.me
-copyright:      2024 Merencillo, Julse M.
+copyright:      2024-2025 Merencillo, Julse M.
 license:        MIT
 license-file:   LICENSE
 build-type:     Simple
@@ -38,9 +38,10 @@ library
     , text
   default-language: Haskell2010
 
-executable cascades-exe
+executable cascades
   main-is: Main.hs
   other-modules:
+      Samples
       Paths_cascades
   hs-source-dirs:
       app

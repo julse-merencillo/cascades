@@ -62,6 +62,7 @@
 - Cascade's assembler, found in `Cascade.Assembler`
 - Cascade's interpreter, found in `Cascade.Runtime`
 
+[0.2.1]: https://github.com/julse-merencillo/cascades/releases/tag/0.2.1
 [0.1.2]: https://github.com/julse-merencillo/cascades/releases/tag/0.1.2
 [0.1.1]: https://github.com/julse-merencillo/cascades/releases/tag/0.1.1
 [0.0.1]: https://github.com/julse-merencillo/cascades/releases/tag/0.0.1

@@ -5,7 +5,7 @@ cabal-version: 1.12
 -- see: https://github.com/sol/hpack
 
 name:           cascades
-version:        0.2.1
+version:        0.3.1
 description:    Please see the README on GitHub at <https://github.com/julse-merencillo/cascades>
 homepage:       https://github.com/julse-merencillo/cascades#readme
 bug-reports:    https://github.com/julse-merencillo/cascades/issues

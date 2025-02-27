@@ -4,7 +4,9 @@ module Samples
     collatz,
     empty,
     infiloop,
-    regToStackAndBack
+    zerodiv,
+    swaptest,
+    memtest
 ) where
 
 import Cascade.Runtime
@@ -23,10 +25,9 @@ collatz = S.fromList [ LVR 1       -- Load 1 to the register for comparison
                      , DUP         -- Use a duplicate to check divisibility
                      , PSH 2       -- Check divisibility by 2 (parity)
                      , MOD
-                     , JNZ 11      -- Jump to odd case (nondivisible by 2)
+                     , JNZ 10      -- Jump to odd case (nondivisible by 2)
                      , POP         -- Remove the duplicate, even case
-                     , PSH 2       -- Divide by 2
-                     , DIV         
+                     , SHR 1       -- Divide by 2
                      , JNQ 2       -- If not 1, return to DUP
                      , END         -- If it was 1, end the program
                      , POP         -- Remove the duplicate, odd case
@@ -47,17 +48,31 @@ infiloop = S.fromList [ PSH 1 -- Push a number to the stack (we chose 1)
                       , JMP 0 -- Repeat the first instruction
                       ]
 
--- | Test program and all that stuff
-regToStackAndBack :: Program
-regToStackAndBack = S.fromList [ LVR 10
-                               , RGS
-                               , LVR 5
-                               , RGS
-                               , SRG
-                               , SRG
-                               , END
-                               ]
+-- | Division by zero test
+zerodiv :: Program
+zerodiv = S.fromList [ PSH 3
+                     , PSH 0
+                     , DIV
+                     , END
+                     ]
 
-
-
+-- | Swap test
+swaptest :: Program
+swaptest = S.fromList [ PSH 1
+                      , LVR 10
+                      , SWP
+                      , END
+                      ]
+-- | Memory test
+memtest :: Program
+memtest = S.fromList [ LVR 12
+                     , PNT 9
+                     , STR
+                     , LVR 1
+                     , PNT 0
+                     , STR
+                     , PNT 9
+                     , LDR
+                     , END
+                     ]
 

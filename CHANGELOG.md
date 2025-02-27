@@ -1,3 +1,25 @@
+## [0.3.1] (2025/02/27) - Erratum
+
+### Changes
+- Changed the types of the stack and register to use `Word16` instead of `Int`.
+- Reworked the reporting of runtime errors with a new function `reportError`.
+  Additionally, any runtime error results in an early exit with an exit code.
+- Renamed `LMR` to `LDR`, and `SMR` to `STR`
+- The instructions `LDR` and `STR` now have definitions, with the addition of
+  the memory unit.
+
+### Removals
+- Removed `JMS` and `JMR`, as there is currently a mismatch in the instruction
+  pointer and stack contents' types. This may change in the future.
+- Removed the instruction field `instr` in `ExecUnit`. This could be returned
+  at a later time, however.
+
+### Additions
+- Added a memory unit `mem_u` alongside a memory pointer `mem_p` that points to
+  addresses in memory.
+- As such, added `PNT`, `INC`, and `DEC` to manipulate the memory pointer.
+- Added the `SWP` instruction
+
 ## [0.2.1] (2025/01/19) - Remembrance
 
 ### Changes
@@ -62,6 +84,7 @@
 - Cascade's assembler, found in `Cascade.Assembler`
 - Cascade's interpreter, found in `Cascade.Runtime`
 
+[0.3.1]: https://github.com/julse-merencillo/cascades/releases/tag/0.3.1
 [0.2.1]: https://github.com/julse-merencillo/cascades/releases/tag/0.2.1
 [0.1.2]: https://github.com/julse-merencillo/cascades/releases/tag/0.1.2
 [0.1.1]: https://github.com/julse-merencillo/cascades/releases/tag/0.1.1

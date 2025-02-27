@@ -4,14 +4,13 @@ module Main
 ) where
 
 import Cascade.Runtime
+
 import Samples
 
-versionNumber :: String
-versionNumber = "0.2.1"
+-- ( Main ) -------------------------------------------------------------------
 
 main :: IO ()
 main = do
-    putStrLn $ "Cascades, on version " ++ versionNumber 
-    runProgram regToStackAndBack
+    runProgram infiloop
 
 
